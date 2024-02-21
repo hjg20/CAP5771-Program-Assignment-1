@@ -1,9 +1,15 @@
 # Add your imports here.
 # Note: only sklearn, numpy, utils and new_utils are allowed.
+import utils as u
+import new_utils as nu
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import KFold, ShuffleSplit, cross_validate
+from sklearn.linear_model import LogisticRegression
 
 import numpy as np
 from numpy.typing import NDArray
 from typing import Any
+
 
 # ======================================================================
 
@@ -14,10 +20,10 @@ from typing import Any
 
 class Section2:
     def __init__(
-        self,
-        normalize: bool = True,
-        seed: int | None = None,
-        frac_train: float = 0.2,
+            self,
+            normalize: bool = True,
+            seed: int | None = None,
+            frac_train: float = 0.2,
     ):
         """
         Initializes an instance of MyClass.
@@ -43,7 +49,7 @@ class Section2:
     """
 
     def partA(
-        self,
+            self,
     ) -> tuple[
         dict[str, Any],
         NDArray[np.floating],
@@ -51,7 +57,23 @@ class Section2:
         NDArray[np.floating],
         NDArray[np.int32],
     ]:
-        answer = {}
+        Xtrain, ytrain, Xtest, ytest = u.prepare_data()
+        Xtrain = nu.scale_data(Xtrain)
+        Xtest = nu.scale_data(Xtest)
+
+        answer = {
+            "nb_classes_train": len(np.unique(ytrain)),
+            "nb_classes_test": len(np.unique(ytest)),
+            "class_count_train": np.unique(ytrain, return_counts=True),
+            "class_count_test": np.unique(ytest, return_counts=True),
+            "length_Xtrain": len(Xtrain),
+            "length_Xtest": len(Xtest),
+            "length_ytrain": len(ytrain),
+            "length_ytest": len(ytest),
+            "max_Xtrain": Xtrain.max(),
+            "max_Xtest": Xtest.max()
+
+        }
         # Enter your code and fill the `answer`` dictionary
 
         # `answer` is a dictionary with the following keys:
@@ -69,8 +91,8 @@ class Section2:
         # return values:
         # Xtrain, ytrain, Xtest, ytest: the data used to fill the `answer`` dictionary
 
-        Xtrain = Xtest = np.zeros([1, 1], dtype="float")
-        ytrain = ytest = np.zeros([1], dtype="int")
+        # Xtrain = Xtest = np.zeros([1, 1], dtype="float")
+        # ytrain = ytest = np.zeros([1], dtype="int")
 
         return answer, Xtrain, ytrain, Xtest, ytest
 
@@ -91,17 +113,147 @@ class Section2:
     """
 
     def partB(
-        self,
-        X: NDArray[np.floating],
-        y: NDArray[np.int32],
-        Xtest: NDArray[np.floating],
-        ytest: NDArray[np.int32],
-        ntrain_list: list[int] = [],
-        ntest_list: list[int] = [],
+            self,
+            X: NDArray[np.floating],
+            y: NDArray[np.int32],
+            Xtest: NDArray[np.floating],
+            ytest: NDArray[np.int32],
+            ntrain_list: list[int] = [],
+            ntest_list: list[int] = [],
     ) -> dict[int, dict[str, Any]]:
         """ """
-        # Enter your code and fill the `answer`` dictionary
-        answer = {}
+
+        answer = {
+            1000: {
+                "partC": None,
+                "partD": None,
+                "partF": None,
+                "ntrain": None,
+                "ntest": None,
+                "class_count_train": None,
+                "class_count_test": None,
+            },
+
+            5000: {
+                "partC": None,
+                "partD": None,
+                "partF": None,
+                "ntrain": None,
+                "ntest": None,
+                "class_count_train": None,
+                "class_count_test": None,
+            },
+            10000: {
+                "partC": None,
+                "partD": None,
+                "partF": None,
+                "ntrain": None,
+                "ntest": None,
+                "class_count_train": None,
+                "class_count_test": None,
+            }
+        }
+
+        for i in range(len(ntrain_list)):
+            Xtrain = X[0:ntrain_list[i], :]
+            ytrain = y[0:ntrain_list[i]]
+            Xtest = X[ntrain_list[i]:ntrain_list[i] + ntest_list[i]]
+            ytest = y[ntrain_list[i]:ntrain_list[i] + ntest_list[i]]
+
+            tree = DecisionTreeClassifier(random_state=self.seed)
+            scores = u.train_simple_classifier_with_cv(Xtrain=Xtrain, ytrain=ytrain, clf=tree, cv=KFold(n_splits=5))
+
+            answer[ntrain_list[i]]["partC"] = {
+                'clf': tree,
+                'cv': KFold(n_splits=5),
+                'scores': scores
+            }
+
+            tree = DecisionTreeClassifier(random_state=self.seed)
+            cv = ShuffleSplit(n_splits=5, random_state=self.seed)
+            scores = cross_validate(tree, Xtrain, ytrain, cv=cv)
+
+            answer[ntrain_list[i]]["partD"] = {
+                'clf': tree,
+                'cv': ShuffleSplit(n_splits=5, random_state=self.seed),
+                'scores': scores,
+                "explain_kfold_vs_shuffle_split": ("The pros of k-fold cross validation is that every data point "
+                                                   "is used for validation once which reduces the risk of bias "
+                                                   "in the model. The cons are that since the folds aren't "
+                                                   "randomly shuffled, there is a chance that, if the data has "
+                                                   "order, the folds don't represent the whole dataset. The pros "
+                                                   "of Shuffle-Split is that the randomization that occurs allows"
+                                                   "for the folds to represent more of the data and not be prone"
+                                                   "to an ordered dataset. The cons are that each run can produce"
+                                                   "different results.")
+            }
+
+            model = LogisticRegression(random_state=self.seed, max_iter=300)
+            tree = DecisionTreeClassifier(random_state=self.seed)
+            rfscores = cross_validate(model, X, y, cv=cv)
+            treescores = cross_validate(tree, X, y, cv=cv)
+
+            rfmean_fit_time = rfscores['fit_time'].mean()
+            rfstd_fit_time = rfscores['fit_time'].std()
+            rfmean_accuracy = rfscores['test_score'].mean()
+            rfstd_accuracy = rfscores['test_score'].std()
+            rfvar = rfstd_accuracy ** 2
+
+            tmean_fit_time = treescores['fit_time'].mean()
+            tstd_fit_time = treescores['fit_time'].std()
+            tmean_accuracy = treescores['test_score'].mean()
+            tstd_accuracy = treescores['test_score'].std()
+            tvar = tstd_accuracy ** 2
+
+            # Find max scoring model
+            if rfmean_accuracy > tmean_accuracy:
+                max_acc_model = "Logistic Regression"
+            elif rfmean_accuracy > tmean_accuracy:
+                max_acc_model = "Decision Tree"
+            else:
+                max_acc_model = "Both"
+
+            # Find the lowest variance model
+            if rfvar > tvar:
+                min_var_model = "Logistic Regression"
+            elif rfvar > tvar:
+                min_var_model = "Decision Tree"
+            else:
+                min_var_model = "Both"
+
+            # Find the fastest model
+            if rfmean_fit_time > tmean_fit_time:
+                fastest_model = "Logistic Regression"
+            elif rfmean_fit_time > tmean_fit_time:
+                fastest_model = "Decision Tree"
+            else:
+                fastest_model = "Both"
+
+            answer[ntrain_list[i]]["partF"] = {
+                "clf_RF": model,
+                "clf_DT": tree,
+                "cv": cv,
+                "scores_RF": {
+                    "mean_fit_time": rfmean_fit_time,
+                    "std_fit_time": rfstd_fit_time,
+                    "mean_accuracy": rfmean_accuracy,
+                    "std_accuracy": rfstd_accuracy
+                },
+                "scores_DT": {
+                    "mean_fit_time": tmean_fit_time,
+                    "std_fit_time": tstd_fit_time,
+                    "mean_accuracy": tmean_accuracy,
+                    "std_accuracy": tstd_accuracy
+                },
+                "model_highest_accuracy": max_acc_model,
+                "model_lowest_variance": min_var_model,
+                "model_fastest": fastest_model
+            }
+            answer[ntrain_list[i]]['ntrain'] = ntrain_list[i]
+            answer[ntrain_list[i]]['ntest'] = ntest_list[i]
+
+            answer[ntrain_list[i]]['class_count_train'] = len(np.unique(y[0:ntrain_list[i]]))
+            answer[ntrain_list[i]]['class_count_test'] = len(np.unique(y[ntrain_list[i]:ntrain_list[i] + ntest_list[i]]))
 
         """
         `answer` is a dictionary with the following keys:
@@ -118,5 +270,5 @@ class Section2:
             - "class_count_test": number of elements in each class in
                                the training set (a list, not a numpy array)
         """
-
+        print(answer)
         return answer

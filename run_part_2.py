@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # Return values properly filtered, tec.
     answer = {}
     answer["2A"], Xtrain, ytrain, Xtest, ytest = part_A(part2)
-    ntrain_list = [16000, 8000, 4000, 2000]
-    ntest_list = [i // 4 for i in ntrain_list]
+    ntrain_list = [1000,5000,10000]
+    ntest_list = [i // 5 for i in ntrain_list]
     answer["2B"] = part_B(part2, Xtrain, ytrain, Xtest, ytest, ntrain_list, ntest_list)
     u.save_dict("section2.pkl", answer)
