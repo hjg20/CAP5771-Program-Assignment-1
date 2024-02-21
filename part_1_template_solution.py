@@ -53,6 +53,7 @@ class Section1:
         You change the seed ONLY in the section of run_part_1.py, run_part2.py, run_part3.py
         below `if __name__ == "__main__"`
         """
+        self.cv = None
         self.normalize = normalize
         self.frac_train = frac_train
         self.seed = seed
@@ -94,14 +95,12 @@ class Section1:
 
         answer = {}
 
-        # Enter your code and fill the `answer` dictionary
-
-        answer["length_Xtrain"] = None  # Number of samples
-        answer["length_Xtest"] = None
-        answer["length_ytrain"] = None
-        answer["length_ytest"] = None
-        answer["max_Xtrain"] = None
-        answer["max_Xtest"] = None
+        answer["length_Xtrain"] = len(Xtrain)  # Number of samples
+        answer["length_Xtest"] = len(Xtest)
+        answer["length_ytrain"] = len(ytrain)
+        answer["length_ytest"] = len(ytest)
+        answer["max_Xtrain"] = Xtrain.max()
+        answer["max_Xtest"] = Xtest.max()
         return answer, Xtrain, ytrain, Xtest, ytest
 
     """
@@ -119,13 +118,15 @@ class Section1:
         y: NDArray[np.int32],
     ):
         # Enter your code and fill the `answer` dictionary
+        tree = DecisionTreeClassifier(random_state=self.seed)
+        scores = u.train_simple_classifier_with_cv(Xtrain=X, ytrain=y, clf=tree, cv=KFold(n_splits=5))
 
         answer = {}
-        answer["clf"] = None  # the estimator (classifier instance)
-        answer["cv"] = None  # the cross validator instance
+        answer["clf"] = tree  # the estimator (classifier instance)
+        answer["cv"] = KFold(n_splits=5)  # the cross validator instance
         # the dictionary with the scores  (a dictionary with
         # keys: 'mean_fit_time', 'std_fit_time', 'mean_accuracy', 'std_accuracy'.
-        answer["scores"] = None
+        answer["scores"] = scores
         return answer
 
     # ---------------------------------------------------------
@@ -140,14 +141,25 @@ class Section1:
         y: NDArray[np.int32],
     ):
         # Enter your code and fill the `answer` dictionary
+        tree = DecisionTreeClassifier(random_state=self.seed)
+        self.cv = ShuffleSplit(n_splits=5, random_state=self.seed)
+        scores = cross_validate(tree, X, y, cv=self.cv)
 
         # Answer: same structure as partC, except for the key 'explain_kfold_vs_shuffle_split'
 
         answer = {}
-        answer["clf"] = None
-        answer["cv"] = None
-        answer["scores"] = None
-        answer["explain_kfold_vs_shuffle_split"] = None
+        answer["clf"] = tree
+        answer["cv"] = ShuffleSplit(n_splits=5, random_state=self.seed)
+        answer["scores"] = scores
+        answer["explain_kfold_vs_shuffle_split"] = ("The pros of k-fold cross validation is that every data point "
+                                                    "is used for validation once which reduces the risk of bias "
+                                                    "in the model. The cons are that since the folds aren't "
+                                                    "randomly shuffled, there is a chance that, if the data has "
+                                                    "order, the folds don't represent the whole dataset. The pros "
+                                                    "of Shuffle-Split is that the randomization that occurs allows"
+                                                    "for the folds to represent more of the data and not be prone"
+                                                    "to an ordered dataset. The cons are that each run can produce"
+                                                    "different results.")
         return answer
 
     # ----------------------------------------------------------------------
@@ -165,8 +177,21 @@ class Section1:
         # Answer: built on the structure of partC
         # `answer` is a dictionary with keys set to each split, in this case: 2, 5, 8, 16
         # Therefore, `answer[k]` is a dictionary with keys: 'scores', 'cv', 'clf`
+        splits = [2, 5, 8, 16]
+        tree = DecisionTreeClassifier(random_state=self.seed)
 
         answer = {}
+        answer[2] = {}
+        answer[5] = {}
+        answer[8] = {}
+        answer[16] = {}
+        for i in splits:
+
+            scores = cross_validate(tree, X, y, cv=ShuffleSplit(n_splits=i, random_state=self.seed))
+
+            answer[i]["clf"] = tree
+            answer[i]["cv"] = ShuffleSplit(n_splits=i, random_state=self.seed)
+            answer[i]["scores"] = scores
 
         # Enter your code, construct the `answer` dictionary, and return it.
 
@@ -194,9 +219,67 @@ class Section1:
     ) -> dict[str, Any]:
         """ """
 
-        answer = {}
+        model = RandomForestClassifier(random_state=self.seed)
+        tree = DecisionTreeClassifier(random_state=self.seed)
+        rfscores = cross_validate(model, X, y, cv=self.cv)
+        treescores = cross_validate(tree, X, y, cv=self.cv)
 
-        # Enter your code, construct the `answer` dictionary, and return it.
+        rfmean_fit_time = rfscores['fit_time'].mean()
+        rfstd_fit_time = rfscores['fit_time'].std()
+        rfmean_accuracy = rfscores['test_score'].mean()
+        rfstd_accuracy = rfscores['test_score'].std()
+        rfvar = rfstd_accuracy ** 2
+
+        tmean_fit_time = treescores['fit_time'].mean()
+        tstd_fit_time = treescores['fit_time'].std()
+        tmean_accuracy = treescores['test_score'].mean()
+        tstd_accuracy = treescores['test_score'].std()
+        tvar = tstd_accuracy **2
+
+        # Find max scoring model
+        if rfmean_accuracy > tmean_accuracy:
+            max_acc_model = "Random Forest"
+        elif rfmean_accuracy > tmean_accuracy:
+            max_acc_model = "Decision Tree"
+        else:
+            max_acc_model = "Both"
+
+        # Find the lowest variance model
+        if rfvar > tvar:
+            min_var_model = "Random Forest"
+        elif rfvar > tvar:
+            min_var_model = "Decision Tree"
+        else:
+            min_var_model = "Both"
+
+        # Find the fastest model
+        if rfmean_fit_time > tmean_fit_time:
+            fastest_model = "Random Forest"
+        elif rfmean_fit_time > tmean_fit_time:
+            fastest_model = "Decision Tree"
+        else:
+            fastest_model = "Both"
+
+        answer = {
+            "clf_RF": model,
+            "clf_DT": tree,
+            "cv": self.cv,
+            "scores_RF": {
+                "mean_fit_time": rfmean_fit_time,
+                "std_fit_time": rfstd_fit_time,
+                "mean_accuracy": rfmean_accuracy,
+                "std_accuracy": rfstd_accuracy
+            },
+            "scores_DT": {
+                "mean_fit_time": tmean_fit_time,
+                "std_fit_time": tstd_fit_time,
+                "mean_accuracy": tmean_accuracy,
+                "std_accuracy": tstd_accuracy
+            },
+            "model_highest_accuracy": max_acc_model,
+            "model_lowest_variance": min_var_model,
+            "model_fastest": fastest_model
+        }
 
         """
          Answer is a dictionary with the following keys: 
@@ -209,6 +292,7 @@ class Section1:
             "model_lowest_variance" (float)
             "model_fastest" (float)
         """
+
 
         return answer
 
@@ -264,8 +348,42 @@ class Section1:
          5) max_features 
          5) n_estimators
         """
+        model = RandomForestClassifier(random_state=self.seed)
+        model.fit(X, y)
+        y_pred = model.predict(X)
+        yt_pred = model.predict(Xtest)
 
-        answer = {}
+        estimators = [10, 50, 100, 200]
+        depths = [3, 7, 11]
+
+        params = {
+            "max_depth": depths,
+            "n_estimators": estimators
+        }
+
+        gscv = GridSearchCV(estimator=model, param_grid=params, cv=ShuffleSplit(n_splits=5, random_state=self.seed))
+        gscv.fit(X, y)
+        y_pred_best = gscv.best_estimator_.predict(X)
+        yt_pred_best = gscv.best_estimator_.predict(Xtest)
+
+        answer = {
+            "clf": model,
+            "default_parameters": {
+                "random_state": self.seed
+            },
+            "best_estimator": gscv.best_params_,
+            "grid_search": gscv,
+            "mean_accuracy_cv": gscv.best_score_,
+            "confusion_matrix_train_orig": confusion_matrix(y, y_pred),
+            "confusion_matrix_train_best": confusion_matrix(y, y_pred_best),
+            "confusion_matrix_test_orig": confusion_matrix(ytest, yt_pred),
+            "confusion_matrix_test_best": confusion_matrix(ytest, yt_pred_best),
+            "accuracy_orig_full_training": np.trace(confusion_matrix(y, y_pred)) / np.sum(confusion_matrix(y, y_pred)),
+            "accuracy_best_full_training": np.trace(confusion_matrix(y, y_pred_best)) / np.sum(confusion_matrix(y, y_pred_best)),
+            "accuracy_orig_full_testing": np.trace(confusion_matrix(ytest, yt_pred)) / np.sum(confusion_matrix(ytest, yt_pred)),
+            "accuracy_best_full_testing": np.trace(confusion_matrix(ytest, yt_pred_best)) / np.sum(confusion_matrix(ytest, yt_pred_best)),
+
+        }
 
         # Enter your code, construct the `answer` dictionary, and return it.
 
@@ -296,5 +414,4 @@ class Section1:
             "accuracy_best_full_testing"
                
         """
-
         return answer
