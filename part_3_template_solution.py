@@ -1,6 +1,11 @@
 import numpy as np
 from numpy.typing import NDArray
 from typing import Any
+import utils as u
+import new_utils as nu
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import top_k_accuracy_score
+import matplotlib.pyplot as plt
 
 """
    In the first two set of tasks, we will narrowly focus on accuracy - 
@@ -65,10 +70,61 @@ class Section3:
         NDArray[np.int32],
     ]:
         """ """
+        model = LogisticRegression(random_state=self.seed, max_iter=300)
+        model.fit(Xtrain, ytrain)
+        train_score = model.predict_proba(Xtrain)
+        test_score = model.predict_proba(Xtest)
+        ks = [1,2,3,4,5]
+        train_scores = []
+        test_scores = []
+        for i in ks:
+            train_scores.append(top_k_accuracy_score(ytrain, train_score, k=i))
+            test_scores.append(top_k_accuracy_score(ytest, test_score, k=i))
+
+        train_plot = plt.plot(ks, train_scores)
+        test_plot = plt.plot(ks, test_scores)
+
         # Enter code and return the `answer`` dictionary
 
-        answer = {}
+        answer = {
+            'clf': model,
+            'plot_k_vs_score_train': train_plot,
+            'plot_k_vs_score_test': test_plot,
+            'text_rate_accuracy_change': 'At each change in k, the slope of the curve representing the scores'
+                                         'gets smaller and levels out. Therefore, the change in accuracy from'
+                                         'k=1 to k=2 is greater than the change from k=4 to k=5.',
+            'text_is_topk_useful_and_why': 'This metric is useful for this dataset because the accuracies seem to '
+                                           'converge and both the training and testing lines on the graph are close'
+                                           'together. This indicates that there is no significant over-fitting that is '
+                                           'occurring and we get a great sense that the majority of our accuracy has '
+                                           'occurred by k=3. Therefore, this metric is useful because it helps us '
+                                           'understand out model better and the amount of guesses (k) we need to use. ',
+            '1': {
+                'score_train': train_scores[0],
+                'score_test': test_scores[0]
 
+            },
+            '2': {
+                'score_train': train_scores[1],
+                'score_test': test_scores[1]
+
+            },
+            '3': {
+                'score_train': train_scores[2],
+                'score_test': test_scores[2]
+
+            },
+            '4': {
+                'score_train': train_scores[3],
+                'score_test': test_scores[3]
+
+            },
+            '5': {
+                'score_train': train_scores[4],
+                'score_test': test_scores[4]
+
+            },
+        }
         """
         # `answer` is a dictionary with the following keys:
         - integers for each topk (1,2,3,4,5)
@@ -93,7 +149,8 @@ class Section3:
 
     # --------------------------------------------------------------------------
     """
-    B. Repeat part 1.B but return an imbalanced dataset consisting of 90% of all 9s removed.  Also convert the 7s to 0s and 9s to 1s.
+    B. Repeat part 1.B but return an imbalanced dataset consisting of 90% of all 9s removed.  
+    Also convert the 7s to 0s and 9s to 1s.
     """
 
     def partB(
@@ -110,13 +167,45 @@ class Section3:
         NDArray[np.int32],
     ]:
         """"""
-        # Enter your code and fill the `answer` dictionary
-        answer = {}
+
+        Xtrain, ytrain = u.filter_out_7_9s(X, y)
+        Xtest, ytest = u.filter_out_7_9s(Xtest, ytest)
+        Xtrain = nu.scale_data(Xtrain)
+        Xtest = nu.scale_data(Xtest)
+
+        nines = np.random.choice(np.where(ytrain == 9)[0],
+                                 size=int(len(np.where(ytrain == 9)[0]) * 0.1),
+                                 replace=False)
+        test_nines = np.random.choice(np.where(ytest == 9)[0],
+                                      size=int(len(np.where(ytest == 9)[0]) * 0.1),
+                                      replace=False)
+        sevens = np.where(ytrain == 7)[0]
+        test_sevens = np.where(ytest == 7)[0]
+
+        indices = np.concatenate((sevens, nines))
+        test_indices = np.concatenate((test_sevens, test_nines))
+
+        X = Xtrain[indices]
+        y = ytrain[indices]
+        Xtest = Xtest[test_indices]
+        ytest = ytest[test_indices]
+
+        y = np.where(y == 7, 0, y)
+        y = np.where(y == 9, 1, y)
+        ytest = np.where(ytest == 7, 0, ytest)
+        ytest = np.where(ytest == 9, 1, ytest)
 
         # Answer is a dictionary with the same keys as part 1.B
+        answer = {}
+
+        answer["length_Xtrain"] = len(X)  # Number of samples
+        answer["length_Xtest"] = len(Xtest)
+        answer["length_ytrain"] = len(y)
+        answer["length_ytest"] = len(ytest)
+        answer["max_Xtrain"] = X.max()
+        answer["max_Xtest"] = Xtest.max()
 
         return answer, X, y, Xtest, ytest
-
     # --------------------------------------------------------------------------
     """
     C. Repeat part 1.C for this dataset but use a support vector machine (SVC in sklearn). 
