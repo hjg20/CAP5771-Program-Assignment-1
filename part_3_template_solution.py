@@ -5,8 +5,9 @@ import utils as u
 import new_utils as nu
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
-from sklearn.model_selection import KFold, cross_validate
-from sklearn.metrics import top_k_accuracy_score, f1_score
+from sklearn.model_selection import KFold, cross_validate, StratifiedKFold
+from sklearn.metrics import top_k_accuracy_score, confusion_matrix
+from sklearn.utils.class_weight import compute_class_weight
 import matplotlib.pyplot as plt
 
 """
@@ -175,9 +176,11 @@ class Section3:
         Xtrain = nu.scale_data(Xtrain)
         Xtest = nu.scale_data(Xtest)
 
+        np.random.seed(self.seed)
         nines = np.random.choice(np.where(ytrain == 9)[0],
                                  size=int(len(np.where(ytrain == 9)[0]) * 0.1),
                                  replace=False)
+        np.random.seed(self.seed)
         test_nines = np.random.choice(np.where(ytest == 9)[0],
                                       size=int(len(np.where(ytest == 9)[0]) * 0.1),
                                       replace=False)
@@ -228,27 +231,46 @@ class Section3:
         """"""
 
         svc = SVC(random_state=self.seed)
-        scores = cross_validate(svc, X, y, cv=KFold(n_splits=5), scoring=['f1', 'accuracy'])
+        scores = cross_validate(svc, X, y, cv=StratifiedKFold(n_splits=5),
+                                scoring=['f1', 'accuracy', 'recall', 'precision'],
+                                error_score='raise')
         accuracy = scores['test_accuracy']
         f1_score = scores['test_f1']
+        recall_score = scores['test_recall']
+        precision_score = scores['test_precision']
+
+        if np.mean(precision_score) > np.std(recall_score):
+            precision_higher_than_recall = True
+        else:
+            precision_higher_than_recall = False
+
+        svc.fit(X, y)
+        ypreds = svc.predict(X)
+        ytpreds = svc.predict(Xtest)
 
         answer = {
             'scores': {
                 'mean_accuracy': np.mean(accuracy),
-                'mean_recall': None,
-                'mean_precision': None,
+                'mean_recall': np.mean(recall_score),
+                'mean_precision': np.mean(precision_score),
                 'mean_f1': np.mean(f1_score),
-                'std_accuracy': None,
-                'std_recall': None,
-                'std_precision': None,
-                'std_f1': None
+                'std_accuracy': np.std(accuracy),
+                'std_recall': np.std(recall_score),
+                'std_precision': np.std(precision_score),
+                'std_f1': np.std(f1_score)
             },
-            'cv': KFold(n_splits=5),
+            'cv': StratifiedKFold(n_splits=5),
             'clf': svc,
-            'is_precision_higher_than_recall': None,
-            'explain_is_precision_higher_than_recall': None,
-            'confusion_matrix_train': None,
-            'confusion_matrix_test': None,
+            'is_precision_higher_than_recall': precision_higher_than_recall,
+            'explain_is_precision_higher_than_recall': "Yes, our precision score is higher. This is most likely"
+                                                       "because of our low proportion of 9s in relation to the"
+                                                       "entire dataset. Since we have a class which is smaller"
+                                                       "than another, we may be very good at calling a label a 9 "
+                                                       "when it truly is a 9, but may be poor at labeling all "
+                                                       "9s in the dataset. Thus, our precision would be higher "
+                                                       "than our recall.",
+            'confusion_matrix_train': confusion_matrix(y, ypreds),
+            'confusion_matrix_test': confusion_matrix(ytest, ytpreds),
 
         }
 
@@ -274,12 +296,13 @@ class Section3:
         - "std_precision" : the std precision
         - "std_f1" : the std f1
         """
-        print(answer)
         return answer
 
     # --------------------------------------------------------------------------
     """
-    D. Repeat the same steps as part 3.C but apply a weighted loss function (see the class_weights parameter).  Print out the class weights, and comment on the performance difference. Use the `compute_class_weight` argument of the estimator to compute the class weights. 
+    D. Repeat the same steps as part 3.C but apply a weighted loss function (see the class_weights parameter).  
+    Print out the class weights, and comment on the performance difference. Use the `compute_class_weight` 
+    argument of the estimator to compute the class weights. 
     """
 
     def partD(
@@ -290,8 +313,48 @@ class Section3:
         ytest: NDArray[np.int32],
     ) -> dict[str, Any]:
         """"""
+
+        weights = compute_class_weight(class_weight='balanced', classes=np.unique(y), y=y)
+        class_weights = {cls: weight for cls, weight in zip(np.unique(y), weights)}
+
+        svc = SVC(random_state=self.seed, class_weight=class_weights)
+        scores = cross_validate(svc, X, y, cv=StratifiedKFold(n_splits=5),
+                                scoring=['f1', 'accuracy', 'recall', 'precision'],
+                                error_score='raise')
+        accuracy = scores['test_accuracy']
+        f1_score = scores['test_f1']
+        recall_score = scores['test_recall']
+        precision_score = scores['test_precision']
+
+        svc.fit(X, y)
+        ypreds = svc.predict(X)
+        ytpreds = svc.predict(Xtest)
+
+        answer = {
+            'scores': {
+                'mean_accuracy': np.mean(accuracy),
+                'mean_recall': np.mean(recall_score),
+                'mean_precision': np.mean(precision_score),
+                'mean_f1': np.mean(f1_score),
+                'std_accuracy': np.std(accuracy),
+                'std_recall': np.std(recall_score),
+                'std_precision': np.std(precision_score),
+                'std_f1': np.std(f1_score)
+            },
+            'cv': StratifiedKFold(n_splits=5),
+            'clf': svc,
+            'class_weights': weights,
+            'confusion_matrix_train': confusion_matrix(y, ypreds),
+            'confusion_matrix_test': confusion_matrix(ytest, ytpreds),
+            'explain_purpose_of_class_weights': "The class weights help to improve the fairness and effectiveness "
+                                                "of models when there is a class imbalance.",
+            'explain_performance_difference': "The addition of class_weights didn't really affect the mean accuracy, "
+                                              "but did significantly increase the mean recall and significantly "
+                                              "decrease the mean precision."
+
+        }
+
         # Enter your code and fill the `answer` dictionary
-        answer = {}
 
         """
         Answer is a dictionary with the following keys: 
@@ -316,5 +379,4 @@ class Section3:
 
         Recall: The scores are based on the results of the cross-validation step
         """
-
         return answer
