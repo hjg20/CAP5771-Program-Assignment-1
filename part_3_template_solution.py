@@ -5,8 +5,8 @@ import utils as u
 import new_utils as nu
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
-from sklearn.model_selection import KFold
-from sklearn.metrics import top_k_accuracy_score
+from sklearn.model_selection import KFold, cross_validate
+from sklearn.metrics import top_k_accuracy_score, f1_score
 import matplotlib.pyplot as plt
 
 """
@@ -228,15 +228,16 @@ class Section3:
         """"""
 
         svc = SVC(random_state=self.seed)
-        scores = u.train_simple_classifier_with_cv(Xtrain=X, ytrain=y, clf=svc, cv=KFold(n_splits=5))
-        print(scores)
+        scores = cross_validate(svc, X, y, cv=KFold(n_splits=5), scoring=['f1', 'accuracy'])
+        accuracy = scores['test_accuracy']
+        f1_score = scores['test_f1']
 
         answer = {
             'scores': {
-                'mean_accuracy': None,
+                'mean_accuracy': np.mean(accuracy),
                 'mean_recall': None,
                 'mean_precision': None,
-                'mean_f1': None,
+                'mean_f1': np.mean(f1_score),
                 'std_accuracy': None,
                 'std_recall': None,
                 'std_precision': None,
@@ -273,7 +274,7 @@ class Section3:
         - "std_precision" : the std precision
         - "std_f1" : the std f1
         """
-
+        print(answer)
         return answer
 
     # --------------------------------------------------------------------------
