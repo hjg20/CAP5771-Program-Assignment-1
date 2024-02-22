@@ -4,6 +4,8 @@ from typing import Any
 import utils as u
 import new_utils as nu
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.model_selection import KFold
 from sklearn.metrics import top_k_accuracy_score
 import matplotlib.pyplot as plt
 
@@ -225,8 +227,31 @@ class Section3:
     ) -> dict[str, Any]:
         """"""
 
+        svc = SVC(random_state=self.seed)
+        scores = u.train_simple_classifier_with_cv(Xtrain=X, ytrain=y, clf=svc, cv=KFold(n_splits=5))
+        print(scores)
+
+        answer = {
+            'scores': {
+                'mean_accuracy': None,
+                'mean_recall': None,
+                'mean_precision': None,
+                'mean_f1': None,
+                'std_accuracy': None,
+                'std_recall': None,
+                'std_precision': None,
+                'std_f1': None
+            },
+            'cv': KFold(n_splits=5),
+            'clf': svc,
+            'is_precision_higher_than_recall': None,
+            'explain_is_precision_higher_than_recall': None,
+            'confusion_matrix_train': None,
+            'confusion_matrix_test': None,
+
+        }
+
         # Enter your code and fill the `answer` dictionary
-        answer = {}
 
         """
         Answer is a dictionary with the following keys: 
