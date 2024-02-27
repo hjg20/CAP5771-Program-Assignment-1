@@ -5,6 +5,7 @@ import new_utils as nu
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import KFold, ShuffleSplit, cross_validate
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import top_k_accuracy_score, confusion_matrix
 
 import numpy as np
 from numpy.typing import NDArray
@@ -189,66 +190,83 @@ class Section2:
             }
 
             model = LogisticRegression(random_state=self.seed, max_iter=300)
-            tree = DecisionTreeClassifier(random_state=self.seed)
-            rfscores = cross_validate(model, X, y, cv=cv)
-            treescores = cross_validate(tree, X, y, cv=cv)
+            # tree = DecisionTreeClassifier(random_state=self.seed)
+            # rfscores = cross_validate(model, X, y, cv=cv)
+            # treescores = cross_validate(tree, X, y, cv=cv)
+            #
+            # rfmean_fit_time = rfscores['fit_time'].mean()
+            # rfstd_fit_time = rfscores['fit_time'].std()
+            # rfmean_accuracy = rfscores['test_score'].mean()
+            # rfstd_accuracy = rfscores['test_score'].std()
+            # rfvar = rfstd_accuracy ** 2
+            #
+            # tmean_fit_time = treescores['fit_time'].mean()
+            # tstd_fit_time = treescores['fit_time'].std()
+            # tmean_accuracy = treescores['test_score'].mean()
+            # tstd_accuracy = treescores['test_score'].std()
+            # tvar = tstd_accuracy ** 2
+            #
+            # # Find max scoring model
+            # if rfmean_accuracy > tmean_accuracy:
+            #     max_acc_model = "Logistic Regression"
+            # elif rfmean_accuracy > tmean_accuracy:
+            #     max_acc_model = "Decision Tree"
+            # else:
+            #     max_acc_model = "Both"
+            #
+            # # Find the lowest variance model
+            # if rfvar > tvar:
+            #     min_var_model = "Logistic Regression"
+            # elif rfvar > tvar:
+            #     min_var_model = "Decision Tree"
+            # else:
+            #     min_var_model = "Both"
+            #
+            # # Find the fastest model
+            # if rfmean_fit_time > tmean_fit_time:
+            #     fastest_model = "Logistic Regression"
+            # elif rfmean_fit_time > tmean_fit_time:
+            #     fastest_model = "Decision Tree"
+            # else:
+            #     fastest_model = "Both"
 
-            rfmean_fit_time = rfscores['fit_time'].mean()
-            rfstd_fit_time = rfscores['fit_time'].std()
-            rfmean_accuracy = rfscores['test_score'].mean()
-            rfstd_accuracy = rfscores['test_score'].std()
-            rfvar = rfstd_accuracy ** 2
+            # answer[ntrain_list[i]]["partF"] = {
+            #     "clf_RF": model,
+            #     "clf_DT": tree,
+            #     "cv": cv,
+            #     "scores_RF": {
+            #         "mean_fit_time": rfmean_fit_time,
+            #         "std_fit_time": rfstd_fit_time,
+            #         "mean_accuracy": rfmean_accuracy,
+            #         "std_accuracy": rfstd_accuracy
+            #     },
+            #     "scores_DT": {
+            #         "mean_fit_time": tmean_fit_time,
+            #         "std_fit_time": tstd_fit_time,
+            #         "mean_accuracy": tmean_accuracy,
+            #         "std_accuracy": tstd_accuracy
+            #     },
+            #     "model_highest_accuracy": max_acc_model,
+            #     "model_lowest_variance": min_var_model,
+            #     "model_fastest": fastest_model
+            # }
 
-            tmean_fit_time = treescores['fit_time'].mean()
-            tstd_fit_time = treescores['fit_time'].std()
-            tmean_accuracy = treescores['test_score'].mean()
-            tstd_accuracy = treescores['test_score'].std()
-            tvar = tstd_accuracy ** 2
-
-            # Find max scoring model
-            if rfmean_accuracy > tmean_accuracy:
-                max_acc_model = "Logistic Regression"
-            elif rfmean_accuracy > tmean_accuracy:
-                max_acc_model = "Decision Tree"
-            else:
-                max_acc_model = "Both"
-
-            # Find the lowest variance model
-            if rfvar > tvar:
-                min_var_model = "Logistic Regression"
-            elif rfvar > tvar:
-                min_var_model = "Decision Tree"
-            else:
-                min_var_model = "Both"
-
-            # Find the fastest model
-            if rfmean_fit_time > tmean_fit_time:
-                fastest_model = "Logistic Regression"
-            elif rfmean_fit_time > tmean_fit_time:
-                fastest_model = "Decision Tree"
-            else:
-                fastest_model = "Both"
+            scores = cross_validate(model, X, y, cv=cv, return_train_score=True)
+            model.fit(X, y)
+            scores_train_F = model.score(X, y)
+            scores_test_F = model.score(Xtest, ytest)  # scalar
+            mean_cv_accuracy_F = scores["test_score"].mean()
 
             answer[ntrain_list[i]]["partF"] = {
-                "clf_RF": model,
-                "clf_DT": tree,
+                "scores_train_F": scores_train_F,
+                "scores_test_F": scores_test_F,
+                "mean_cv_accuracy_F": mean_cv_accuracy_F,
+                "clf": model,
                 "cv": cv,
-                "scores_RF": {
-                    "mean_fit_time": rfmean_fit_time,
-                    "std_fit_time": rfstd_fit_time,
-                    "mean_accuracy": rfmean_accuracy,
-                    "std_accuracy": rfstd_accuracy
-                },
-                "scores_DT": {
-                    "mean_fit_time": tmean_fit_time,
-                    "std_fit_time": tstd_fit_time,
-                    "mean_accuracy": tmean_accuracy,
-                    "std_accuracy": tstd_accuracy
-                },
-                "model_highest_accuracy": max_acc_model,
-                "model_lowest_variance": min_var_model,
-                "model_fastest": fastest_model
+                "conf_mat_train": confusion_matrix(y, model.predict(X)),
+                "conf_mat_test": confusion_matrix(ytest, model.predict(Xtest)),
             }
+
             answer[ntrain_list[i]]['ntrain'] = ntrain_list[i]
             answer[ntrain_list[i]]['ntest'] = ntest_list[i]
 
